@@ -1,52 +1,50 @@
+//Mapa de classificação de areas verdes x nao-verdes de João Pessoa 
 Map.addLayer(joaopessoa)
+
+//Mudando os valores 0 no mapa original para um valor positivo, para que toda a area de estudo seja recortada, já que o programa não está reconhecendo os valores 0 no recorte 
 
 var reclass_joaopessoa = joaopessoa.remap([0,1],[1,2])
 Map.addLayer(reclass_joaopessoa,{},'reclass_joaopessoa')
 
+//Selecionando a imagem de interesse de temperatura de superficie 
 
 var landsat = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
                   .filter(ee.Filter.date('2018-09-28','2018-09-29'))
-                  .filterBounds(geometry);    
+                  .filterBounds(geometry);
+                  
+//Função para recortar a imagem landsat para a regiao de estudo 
 
+var clipf = function clip (img){
+  return img.updateMask(reclass_joaopessoa);};
+
+//aplicando a função
+var landsat_recorte_class = landsat.map(clipf);
   
-   Map.addLayer(landsat.first().clip(geometry),{},'retangulo_clip');
-  Map.addLayer(landsat_recorte_class.select("ST_B10"),{},'recorte_stb10');
-  Map.addLayer(precip,{},'Recorte_class');
-  print(precip,'Recorte_class');
+Map.addLayer(landsat_recorte_class.select("ST_B10"),{},'recorte_stb10');
 
-
-//For collection 6.1 I decided to keep only pixels with the greatest quality 
-//Pixels with QC value = 0 
-//Error is estimated to be <= 1 K */
-
-
-//Transforming raw values into degree celsius 
-//OBS: It's very important to copy image properties!! 
+//Selecionando a banda de temp. superficie 
+//Função para converter para a escala original em Kelvin
+//E depois de Kelvin para Celsius 
 
   var landsatdc = landsat_recorte_class.map(function(x) {
   return (x.select('ST_B10').multiply(0.00341802).add(149).subtract(273.15)//.toUint8()
   .copyProperties(x, ['system:time_start'])
   )});
+
+//Extraindo a única imagem da coleção de imagens. A primeira imagem também é a única, logo o first pode ser usado para extrair
+
+var landsatcelsius = landsatdc.first();
   
-  var landsatcelsius = landsatdc.first();
+Map.addLayer(landsatcelsius);
   
-  Map.addLayer(landsatcelsius);
-  
- //print(modisdc)
- 
- print(landsatcelsius,'Celsius');
- 
- // Set the export "scale" and "crs" parameters.
+
+//Por fim, exportando a imagem em graus celsius já recortada par a região de estudo 
+
 Export.image.toDrive({
   image: landsatcelsius,
   description: 'landsatcelsius',
   folder: 'joaopessoa',
   //region: region,
   scale: 30,
-  //crs: 'EPSG:5070'
+  //crs: 'EPSG:4326'
 });
- 
- 
-  
-  
-
