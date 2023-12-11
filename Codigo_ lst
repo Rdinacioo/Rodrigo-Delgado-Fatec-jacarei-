@@ -1,27 +1,52 @@
 Map.addLayer(joaopessoa)
+
 var reclass_joaopessoa = joaopessoa.remap([0,1],[1,2])
 Map.addLayer(reclass_joaopessoa,{},'reclass_joaopessoa')
+
+
 var landsat = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
                   .filter(ee.Filter.date('2018-09-28','2018-09-29'))
-              	.filterBounds(geometry);
-var landSurfaceTemperature = modis.select('LST_Day_1km');
-var landSurfaceTemperatureVis = {
-  min: 13000.0,
-  max: 16500.0,
-  palette: [
-   '040274', '040281', '0502a3', '0502b8', '0502ce', '0502e6',
-   '0602ff', '235cb1', '307ef3', '269db1', '30c8e2', '32d3ef',
-   '3be285', '3ff38f', '86e26f', '3ae237', 'b5e22e', 'd6e21f',
-   'fff705', 'ffd611', 'ffb613', 'ff8b13', 'ff6e08', 'ff500d',
-   'ff0000', 'de0101', 'c21301', 'a71001', '911003'  ],};
-Map.addLayer(
-	landSurfaceTemperature, landSurfaceTemperatureVis,
-	'Land Surface Temperature');­
-	var clipf = function clip (modis){
-   return modis.updateMask(reclass_joaopessoa);};
-  var precip = modis.map(clipf);
-  var landsat_recorte_class = landsat.map(clipf);
-     Map.addLayer(landsat.first().clip(geometry),{},'retangulo_clip');
+                  .filterBounds(geometry);    
+
+  
+   Map.addLayer(landsat.first().clip(geometry),{},'retangulo_clip');
   Map.addLayer(landsat_recorte_class.select("ST_B10"),{},'recorte_stb10');
   Map.addLayer(precip,{},'Recorte_class');
   print(precip,'Recorte_class');
+
+
+//For collection 6.1 I decided to keep only pixels with the greatest quality 
+//Pixels with QC value = 0 
+//Error is estimated to be <= 1 K */
+
+
+//Transforming raw values into degree celsius 
+//OBS: It's very important to copy image properties!! 
+
+  var landsatdc = landsat_recorte_class.map(function(x) {
+  return (x.select('ST_B10').multiply(0.00341802).add(149).subtract(273.15)//.toUint8()
+  .copyProperties(x, ['system:time_start'])
+  )});
+  
+  var landsatcelsius = landsatdc.first();
+  
+  Map.addLayer(landsatcelsius);
+  
+ //print(modisdc)
+ 
+ print(landsatcelsius,'Celsius');
+ 
+ // Set the export "scale" and "crs" parameters.
+Export.image.toDrive({
+  image: landsatcelsius,
+  description: 'landsatcelsius',
+  folder: 'joaopessoa',
+  //region: region,
+  scale: 30,
+  //crs: 'EPSG:5070'
+});
+ 
+ 
+  
+  
+
